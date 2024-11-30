@@ -1,0 +1,178 @@
+
+Step 1: Define Goals for the MVP
+MVP Features
+Upload a file to the system.
+Split the file into chunks and distribute them across nodes.
+Retrieve a file using a unique identifier.
+Ensure redundancy with basic replication.
+Provide encryption for secure storage.
+Implement a simple P2P network for communication.
+
+Step 2: Overall Workflow
+1. Node Setup
+Nodes join the network by starting a service.
+Register their presence in a distributed hash table (DHT).
+2. File Upload
+User uploads a file.
+The file is chunked, encrypted, and distributed to nodes.
+Metadata (chunk IDs and their node locations) is stored.
+3. File Retrieval
+User provides a unique identifier (file ID).
+Metadata is fetched to locate the chunks.
+Chunks are retrieved, decrypted, and reassembled.
+4. Replication
+Chunks are replicated to a configurable number of nodes for fault tolerance.
+
+
+Step 3: Architecture
+Core Components
+Client Module: Handles file uploads, downloads, and user interaction.
+Node Module: Stores file chunks and communicates with other nodes.
+P2P Networking: Connects nodes and facilitates communication.
+DHT: Stores and retrieves metadata about file chunks.
+Storage Module: Manages file chunk storage on disk.
+Encryption Module: Secures file data during storage and transfer.
+Tech Stack
+Networking: libp2p for P2P communication.
+Storage: Local file system for simplicity in the MVP.
+Metadata: BadgerDB or BoltDB for local metadata storage.
+Encryption: Use crypto/aes for encrypting chunks.
+Concurrency: Goroutines for handling multiple connections and file operations.
+
+
+Step 4: Codebase Structure
+Folder Layout
+
+
+project-root/
+│
+├── cmd/
+│   ├── client/            # CLI client for file operations
+│   └── node/              # CLI to start a node
+│
+├── internal/
+│   ├── client/
+│   │   ├── upload.go      # Logic for uploading files
+│   │   └── download.go    # Logic for downloading files
+│   │
+│   ├── node/
+│   │   ├── node.go        # Node initialization and networking
+│   │   ├── storage.go     # Chunk storage management
+│   │   └── replication.go # Chunk replication
+│   │
+│   ├── p2p/
+│   │   ├── network.go     # P2P networking setup
+│   │   ├── messaging.go   # File request/response messaging
+│   │   └── dht.go         # DHT implementation
+│   │
+│   ├── storage/
+│   │   └── file.go        # File chunking and assembly
+│   │
+│   └── crypto/
+│       └── encrypt.go     # Encryption and decryption utilities
+│
+├── pkg/
+│   └── models/            # Shared models (e.g., metadata structure)
+│
+├── test/
+│   ├── integration/       # Integration tests
+│   └── unit/              # Unit tests
+│
+├── go.mod                 # Dependency management
+└── README.md              # Project documentation
+
+
+Step 5: Implementation Workflow
+1. Networking (P2P Layer)
+Use libp2p to establish communication between nodes.
+Implement message types for:
+File upload request.
+File download request.
+Node discovery.
+2. File Chunking
+Split files into fixed-size chunks (e.g., 1MB each).
+Use hash-based chunk IDs (e.g., SHA-256).
+3. Encryption
+Use AES to encrypt chunks with a symmetric key.
+Store the encryption key securely for retrieval.
+4. Distributed Metadata
+Use a DHT to store:
+File ID → Chunk IDs
+Chunk ID → Node IDs
+Implement a simple key-value store for metadata.
+5. Chunk Storage
+Store chunks locally using a directory structure.
+Example:
+
+/storage/
+    chunk1
+    chunk2
+
+
+6. File Upload
+Client:
+Chunk and encrypt the file.
+Send chunks to nodes and update metadata.
+Node:
+Receive and store chunks.
+Respond to replication requests.
+
+
+7. File Retrieval
+Client:
+Query metadata for chunk locations.
+Retrieve and decrypt chunks from nodes.
+Reassemble the file.
+Step 6: Minimal Code Snippets
+1. File Chunking (Storage Module)
+
+func ChunkFile(filePath string, chunkSize int) ([]string, error) {
+    file, err := os.Open(filePath)
+    if err != nil {
+        return nil, err
+    }
+    defer file.Close()
+
+    chunkIDs := []string{}
+    buffer := make([]byte, chunkSize)
+    for {
+        n, err := file.Read(buffer)
+        if err == io.EOF {
+            break
+        }
+        if err != nil {
+            return nil, err
+        }
+
+        chunkID := fmt.Sprintf("%x", sha256.Sum256(buffer[:n]))
+        err = os.WriteFile(fmt.Sprintf("storage/%s", chunkID), buffer[:n], 0644)
+        if err != nil {
+            return nil, err
+        }
+        chunkIDs = append(chunkIDs, chunkID)
+    }
+    return chunkIDs, nil
+}
+
+
+2. Basic Node (Node Module)
+
+func StartNode() {
+    host, err := libp2p.New()
+    if err != nil {
+        log.Fatalf("Failed to create P2P host: %v", err)
+    }
+
+    log.Printf("Node started. Listening on: %s", host.Addrs())
+    // Handle file storage and messaging
+}
+
+
+Step 7: Testing and Deployment
+Testing
+Unit tests for chunking, encryption, and DHT operations.
+Integration tests for file upload/download in a multi-node setup.
+Deployment
+Run multiple nodes locally or on cloud instances.
+Test file uploads and retrievals between nodes.
+
